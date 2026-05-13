@@ -10,7 +10,7 @@ on:
         required: true
         default: 'test'
         type: choice
-        options: [test, full, weekly]
+        options: [test, full, weekly, finalize]
 
 permissions:
   contents: write
