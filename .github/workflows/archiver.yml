@@ -1,0 +1,48 @@
+name: Seahorse Archiver
+
+on:
+  schedule:
+    - cron: '0 1 * * 1'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: '运行模式'
+        required: true
+        default: 'test'
+        type: choice
+        options: [test, full, weekly]
+
+permissions:
+  contents: write
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4 lxml
+
+      - name: Run archiver
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          QQ_EMAIL: ${{ secrets.QQ_EMAIL }}
+          QQ_AUTH_CODE: ${{ secrets.QQ_AUTH_CODE }}
+          MAIL_RECIPIENTS_TEST: ${{ secrets.MAIL_RECIPIENTS_TEST }}
+          MAIL_RECIPIENTS_FULL: ${{ secrets.MAIL_RECIPIENTS_FULL }}
+          MODE: ${{ github.event.inputs.mode || 'weekly' }}
+        run: python archiver.py
+
+      - name: Commit manifest
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add manifest.json || true
+          git diff --staged --quiet || git commit -m "Update manifest [skip ci]"
+          git push || true
