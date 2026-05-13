@@ -1,282 +1,48 @@
-#!/usr/bin/env python3
-"""Seahorse Planet Podcast Archiver -> GitHub Release (v2)"""
-import os, re, json, time, smtplib, requests
-from datetime import datetime
-from email.mime.text import MIMEText
-from email.header import Header
-from bs4 import BeautifulSoup
+name: Seahorse Archiver
 
-# ===== 配置 =====
-SITE_EPISODES = "https://seahorseplanet.net/episodes/"
-MANIFEST_FILE = "manifest.json"
-RELEASE_TAG = "archive"
-BATCH_SIZE = 20  # 每批处理最多 20 期,避免 Actions 超时
-SINGLE_TIMEOUT = 900  # 单期最长 15 分钟,超时跳过
+on:
+  schedule:
+    - cron: '0 1 * * 1'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: '运行模式'
+        required: true
+        default: 'test'
+        type: choice
+        options: [test, full, weekly]
 
-GH_TOKEN = os.environ["GH_TOKEN"]
-GH_REPO = os.environ["GH_REPO"]
-QQ_EMAIL = os.environ["QQ_EMAIL"]
-QQ_AUTH_CODE = os.environ["QQ_AUTH_CODE"]
-MODE = os.environ.get("MODE", "weekly")
+permissions:
+  contents: write
 
-if MODE == "test":
-    RECIPIENTS = [x.strip() for x in os.environ["MAIL_RECIPIENTS_TEST"].split(",")]
-else:
-    RECIPIENTS = [x.strip() for x in os.environ["MAIL_RECIPIENTS_FULL"].split(",")]
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-def log(msg):
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-def load_manifest():
-    if os.path.exists(MANIFEST_FILE):
-        with open(MANIFEST_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return {"processed": {}, "last_heartbeat": None, "filename_seq": {}}
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4 lxml
 
-def save_manifest(m):
-    with open(MANIFEST_FILE, "w", encoding="utf-8") as f:
-        json.dump(m, f, ensure_ascii=False, indent=2)
+      - name: Run archiver
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          QQ_EMAIL: ${{ secrets.QQ_EMAIL }}
+          QQ_AUTH_CODE: ${{ secrets.QQ_AUTH_CODE }}
+          MAIL_RECIPIENTS_TEST: ${{ secrets.MAIL_RECIPIENTS_TEST }}
+          MAIL_RECIPIENTS_FULL: ${{ secrets.MAIL_RECIPIENTS_FULL }}
+          MODE: ${{ github.event.inputs.mode || 'weekly' }}
+        run: python archiver.py
 
-def clean_title(title):
-    return re.sub(r'[^\u4e00-\u9fa5a-zA-Z0-9]+', '', title)
-
-MONTH_MAP = {
-    'January':'01','February':'02','March':'03','April':'04','May':'05','June':'06',
-    'July':'07','August':'08','September':'09','October':'10','November':'11','December':'12'
-}
-
-def fetch_all_episodes():
-    episodes = []
-    page = 1
-    while True:
-        url = SITE_EPISODES if page == 1 else f"{SITE_EPISODES}page/{page}/"
-        log(f"抓取分页: {url}")
-        r = requests.get(url, timeout=30, headers={"User-Agent": "Mozilla/5.0"})
-        if r.status_code == 404:
-            break
-        r.raise_for_status()
-        soup = BeautifulSoup(r.content, "lxml")
-        download_links = soup.find_all("a", href=re.compile(r"/podcast-download/\d+/"))
-        if not download_links:
-            break
-        before_count = len(episodes)
-        for a in download_links:
-            href = a.get("href", "")
-            mp3_url = href.split("?")[0]
-            title_attr = a.get("title", "").strip()
-            if not title_attr:
-                continue
-            parent = a
-            date_str, ym = None, None
-            for _ in range(8):
-                parent = parent.parent
-                if parent is None: break
-                text = parent.get_text(" ", strip=True)
-                m = re.search(r'Recorded on (\d{1,2})\.\s*(\w+)\s*(\d{4})', text)
-                if m:
-                    day, month_en, year = m.group(1), m.group(2), m.group(3)
-                    mm = MONTH_MAP.get(month_en, "01")
-                    date_str = f"{year}-{mm}-{int(day):02d}"
-                    ym = f"{year}{mm}"
-                    break
-            if not date_str:
-                continue
-            if any(e["mp3_url"] == mp3_url for e in episodes):
-                continue
-            episodes.append({
-                "guid": mp3_url, "title": title_attr,
-                "title_clean": clean_title(title_attr),
-                "mp3_url": mp3_url, "ym": ym, "pub_date": date_str,
-            })
-        if len(episodes) == before_count:
-            break
-        page += 1
-        if page > 30: break
-        time.sleep(1)
-    episodes.sort(key=lambda x: x["pub_date"])
-    log(f"全站共抓到 {len(episodes)} 期")
-    return episodes
-
-def make_filename(ep, manifest):
-    """生成不冲突的文件名: 同月有多期则加 _a/_b/_c"""
-    ym = ep["ym"]
-    # 检查已处理的同月音频数量
-    used = manifest["filename_seq"].get(ym, [])
-    # 用日期+url判断是否已经分配过
-    key = f"{ep['pub_date']}_{ep['mp3_url']}"
-    if key in used:
-        idx = used.index(key)
-    else:
-        idx = len(used)
-        used.append(key)
-        manifest["filename_seq"][ym] = used
-    if idx == 0:
-        return f"{ym}.mp3"
-    suffix = chr(ord('a') + idx - 1)  # _a, _b, _c ...
-    return f"{ym}_{suffix}.mp3"
-
-class GHRelease:
-    def __init__(self, repo, token):
-        self.repo, self.token = repo, token
-        self.api = "https://api.github.com"
-        self.headers = {
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/vnd.github+json",
-        }
-    def get_or_create_release(self, tag):
-        r = requests.get(f"{self.api}/repos/{self.repo}/releases/tags/{tag}",
-                         headers=self.headers, timeout=15)
-        if r.status_code == 200:
-            return r.json()
-        r = requests.post(f"{self.api}/repos/{self.repo}/releases",
-                          headers=self.headers, timeout=15,
-                          json={"tag_name": tag, "name": "海马星球播客归档",
-                                "body": "自动归档,请勿删除"})
-        r.raise_for_status()
-        return r.json()
-    def upload_asset(self, release, filepath, filename):
-        upload_url = release["upload_url"].split("{")[0]
-        with open(filepath, "rb") as f:
-            data = f.read()
-        r = requests.post(f"{upload_url}?name={filename}",
-            headers={**self.headers, "Content-Type": "audio/mpeg"},
-            data=data, timeout=600)
-        if r.status_code == 422:
-            r2 = requests.get(f"{self.api}/repos/{self.repo}/releases/{release['id']}/assets",
-                              headers=self.headers, timeout=15)
-            for asset in r2.json():
-                if asset["name"] == filename:
-                    requests.delete(f"{self.api}/repos/{self.repo}/releases/assets/{asset['id']}",
-                                    headers=self.headers, timeout=15)
-                    break
-            r = requests.post(f"{upload_url}?name={filename}",
-                headers={**self.headers, "Content-Type": "audio/mpeg"},
-                data=data, timeout=600)
-        r.raise_for_status()
-        return r.json()["browser_download_url"]
-
-def send_mail(subject, body, recipients=None):
-    recipients = recipients or RECIPIENTS
-    msg = MIMEText(body, "plain", "utf-8")
-    msg["Subject"] = Header(subject, "utf-8")
-    msg["From"] = QQ_EMAIL
-    msg["To"] = ", ".join(recipients)
-    with smtplib.SMTP_SSL("smtp.qq.com", 465, timeout=30) as s:
-        s.login(QQ_EMAIL, QQ_AUTH_CODE)
-        s.sendmail(QQ_EMAIL, recipients, msg.as_string())
-    log(f"邮件已发: {subject} -> {len(recipients)}人")
-
-def process_episode(ep, gh, release, manifest):
-    """处理单期,返回 (success_dict, error_msg)"""
-    filename = make_filename(ep, manifest)
-    local_path = filename
-    start = time.time()
-    try:
-        log(f"下载: {filename} ({ep['title']})")
-        with requests.get(ep["mp3_url"], timeout=300, stream=True,
-                          headers={"User-Agent": "Mozilla/5.0"}) as r:
-            r.raise_for_status()
-            with open(local_path, "wb") as f:
-                for chunk in r.iter_content(chunk_size=65536):
-                    if time.time() - start > SINGLE_TIMEOUT:
-                        raise TimeoutError(f"单期超时 {SINGLE_TIMEOUT}s")
-                    f.write(chunk)
-        size_mb = os.path.getsize(local_path) / 1024 / 1024
-        log(f"上传: {filename} ({size_mb:.1f}MB)")
-        download_url = gh.upload_asset(release, local_path, filename)
-        os.remove(local_path)
-        return {
-            **ep, "filename": filename, "download_url": download_url,
-            "size_mb": round(size_mb, 1)
-        }, None
-    except Exception as e:
-        if os.path.exists(local_path):
-            os.remove(local_path)
-        return None, str(e)
-
-def main():
-    log(f"=== 模式: {MODE} | 收件人: {RECIPIENTS} ===")
-    manifest = load_manifest()
-    if "filename_seq" not in manifest:
-        manifest["filename_seq"] = {}
-    
-    try:
-        episodes = fetch_all_episodes()
-    except Exception as e:
-        send_mail("⚠️ 海马星球抓取失败", f"错误: {e}", recipients=[QQ_EMAIL])
-        raise
-    if not episodes:
-        send_mail("⚠️ 海马星球抓取异常", "未抓到任何音频", recipients=[QQ_EMAIL])
-        return
-    
-    new_eps = [e for e in episodes if e["guid"] not in manifest["processed"]]
-    total_new = len(new_eps)
-    
-    if MODE == "test":
-        new_eps = new_eps[-2:]
-        log(f"测试模式: 处理最近 2 期")
-    else:
-        # 按时间从老到新处理,先批量限制
-        new_eps = new_eps[:BATCH_SIZE]
-    
-    log(f"本批待处理: {len(new_eps)} 期 | 总待处理: {total_new} 期")
-    
-    # 无新音频 - 心跳判断
-    if not new_eps:
-        today = datetime.now()
-        last_hb = manifest.get("last_heartbeat")
-        send_hb = not last_hb or (today.year, today.month) != (
-            datetime.fromisoformat(last_hb).year, datetime.fromisoformat(last_hb).month)
-        if send_hb:
-            send_mail("海马星球月报 · 一切正常",
-                f"本月检测完成,无新音频。\n已归档总数: {len(manifest['processed'])} 期\n下次自动检测: 下周一 09:00",
-                recipients=[QQ_EMAIL])
-            manifest["last_heartbeat"] = today.isoformat()
-        save_manifest(manifest)
-        log("无新音频,结束")
-        return
-    
-    # 处理
-    gh = GHRelease(GH_REPO, GH_TOKEN)
-    release = gh.get_or_create_release(RELEASE_TAG)
-    success, failed = [], []
-    
-    for i, ep in enumerate(new_eps, 1):
-        log(f"--- [{i}/{len(new_eps)}] ---")
-        result, err = process_episode(ep, gh, release, manifest)
-        if result:
-            success.append(result)
-            manifest["processed"][ep["guid"]] = {
-                "filename": result["filename"],
-                "download_url": result["download_url"],
-                "processed_at": datetime.now().isoformat(),
-            }
-            save_manifest(manifest)
-            # 每期成功立即发单封邮件(测试模式和正式模式都如此)
-            body = f"《{ep['title']}》\n\n录制日期: {ep['pub_date']}\n文件大小: {result['size_mb']}MB\n下载地址: {result['download_url']}\n"
-            send_mail(f"海马星球新音频 · {result['filename'].replace('.mp3','')}", body)
-        else:
-            log(f"失败: {ep['title']} - {err}")
-            failed.append({**ep, "error": err})
-    
-    # 批次结束汇报
-    remaining = total_new - len(success)
-    if remaining > 0 and MODE != "test":
-        body = f"本批已完成 {len(success)} 期,总剩余 {remaining} 期未处理。\n\n"
-        body += f"请再次手动触发 Run workflow (选 full 或 weekly) 继续下一批。\n\n"
-        if failed:
-            body += "本批失败清单(下次自动重试):\n"
-            for f in failed:
-                body += f"- {f['title']}: {f['error']}\n"
-        send_mail(f"海马星球归档进度 · 已完成 {len(manifest['processed'])}/{len(episodes)}",
-                  body, recipients=[QQ_EMAIL])
-    elif failed:
-        err = "\n".join(f"- {f['title']}: {f['error']}" for f in failed)
-        send_mail("⚠️ 海马星球部分处理失败", f"以下音频失败,下次重试:\n\n{err}",
-                  recipients=[QQ_EMAIL])
-    
-    save_manifest(manifest)
-    log(f"=== 完成 | 成功 {len(success)} | 失败 {len(failed)} ===")
-
-if __name__ == "__main__":
-    main()
+      - name: Commit manifest
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add manifest.json || true
+          git diff --staged --quiet || git commit -m "Update manifest [skip ci]"
+          git push || true
