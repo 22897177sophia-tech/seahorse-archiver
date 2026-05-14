@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Seahorse Planet Podcast Archiver v4"""
+"""Seahorse Planet Podcast Archiver v5"""
 import os, re, json, time, smtplib, requests
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
@@ -73,6 +73,21 @@ def fetch_eps():
     eps.sort(key=lambda x: x["date"])
     log(f"全站共抓到 {len(eps)} 期")
     return eps
+
+def backfill_old_entries(mf, eps):
+    """回填早期版本 manifest 中缺失的 title 和 date"""
+    fixed = 0
+    eps_by_guid = {e["guid"]: e for e in eps}
+    for guid, item in mf["processed"].items():
+        need_fix = not item.get("title") or not item.get("date")
+        if need_fix and guid in eps_by_guid:
+            src = eps_by_guid[guid]
+            item["title"] = src["title"]
+            item["date"] = src["date"]
+            fixed += 1
+    if fixed > 0:
+        log(f"已回填 {fixed} 期缺失数据")
+    return fixed
 
 def make_fn(ep, mf):
     ym = ep["ym"]
@@ -149,56 +164,37 @@ def process(ep, rel, h, api, mf):
         if os.path.exists(fn): os.remove(fn)
         return None, str(e)
 
-def build_html_digest(mf, total_eps):
-    """生成 HTML 表格邮件正文"""
+def build_html_digest(mf):
     items = list(mf["processed"].values())
     items.sort(key=lambda x: x.get("date",""), reverse=True)
-    
-    # 按年分组
     by_year = defaultdict(list)
     for it in items:
-        y = it.get("date","")[:4] or "未知"
+        y = (it.get("date","") or "")[:4] or "未知"
         by_year[y].append(it)
-    
-    GREEN = "#1B3A2F"
-    GREEN_LIGHT = "#2D5847"
-    STRIPE = "#F4F7F5"
-    
-    html = f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8"></head>
+    GREEN = "#1B3A2F"; GREEN_LIGHT = "#2D5847"; STRIPE = "#F4F7F5"
+    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8"></head>
 <body style="margin:0;padding:20px;background:#FAFBFA;font-family:-apple-system,'PingFang SC','Helvetica Neue',Arial,sans-serif;color:#222;line-height:1.6;">
 <div style="max-width:680px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.04);">
-
 <div style="background:{GREEN};color:#fff;padding:32px 28px;">
 <div style="font-size:22px;font-weight:600;letter-spacing:0.5px;">海马星球播客 · 全站归档</div>
 <div style="font-size:14px;opacity:0.85;margin-top:8px;">共 {len(items)} 期 · {datetime.now().strftime('%Y-%m-%d')}</div>
 </div>
-
 <div style="padding:28px;">
 <p style="margin:0 0 12px 0;font-size:15px;">亲爱的姐妹：</p>
 <p style="margin:0 0 12px 0;font-size:15px;">这里是海马星球播客的全站归档,共 {len(items)} 期。</p>
 <p style="margin:0 0 12px 0;font-size:15px;">让女性的声音被听见、被流传——<br>不是一个人的事,是我们的事。</p>
 <p style="margin:0 0 12px 0;font-size:15px;">愿这些声音陪伴你走过更长的路。</p>
 <p style="margin:0 0 4px 0;font-size:15px;">点击 ↓ 即可下载。</p>
-<p style="margin:0 0 24px 0;font-size:15px;text-align:right;color:#666;">——林晓兰</p>
-"""
-    
+<p style="margin:0 0 24px 0;font-size:15px;text-align:right;color:#666;">——林晓兰</p>"""
     for year in sorted(by_year.keys(), reverse=True):
         eps_y = by_year[year]
-        html += f"""
-<div style="margin-top:32px;margin-bottom:10px;font-size:17px;font-weight:600;color:{GREEN};border-left:3px solid {GREEN};padding-left:10px;">
-{year} 年 <span style="font-size:13px;color:#888;font-weight:400;">({len(eps_y)} 期)</span>
-</div>
+        html += f"""<div style="margin-top:32px;margin-bottom:10px;font-size:17px;font-weight:600;color:{GREEN};border-left:3px solid {GREEN};padding-left:10px;">{year} 年 <span style="font-size:13px;color:#888;font-weight:400;">({len(eps_y)} 期)</span></div>
 <table cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;font-size:14px;">
-<thead>
-<tr style="background:{GREEN_LIGHT};color:#fff;">
+<thead><tr style="background:{GREEN_LIGHT};color:#fff;">
 <th style="padding:10px 12px;text-align:left;width:80px;font-weight:500;">编号</th>
 <th style="padding:10px 12px;text-align:left;font-weight:500;">标题</th>
 <th style="padding:10px 12px;text-align:center;width:60px;font-weight:500;">下载</th>
-</tr>
-</thead>
-<tbody>
-"""
+</tr></thead><tbody>"""
         for i, it in enumerate(eps_y):
             bg = STRIPE if i % 2 == 0 else "#fff"
             fn_short = (it.get("filename") or "").replace(".mp3", "")
@@ -209,40 +205,37 @@ def build_html_digest(mf, total_eps):
 <td style="padding:10px 12px;color:#888;font-family:'SF Mono',Menlo,monospace;font-size:13px;">{fn_short}</td>
 <td style="padding:10px 12px;color:#222;">{title}<div style="color:#999;font-size:12px;margin-top:2px;">{date}</div></td>
 <td style="padding:10px 12px;text-align:center;"><a href="{url}" style="display:inline-block;width:30px;height:30px;line-height:30px;background:{GREEN};color:#fff;text-decoration:none;border-radius:50%;font-size:14px;">↓</a></td>
-</tr>
-"""
+</tr>"""
         html += "</tbody></table>"
-    
-    html += f"""
-<div style="margin-top:40px;padding-top:20px;border-top:1px solid #eee;font-size:12px;color:#999;text-align:center;">
-本邮件由自动归档系统生成 · 海马星球播客
-</div>
-</div>
-</div>
-</body></html>"""
+    html += f"""<div style="margin-top:40px;padding-top:20px;border-top:1px solid #eee;font-size:12px;color:#999;text-align:center;">本邮件由自动归档系统生成 · 海马星球播客</div>
+</div></div></body></html>"""
     return html
 
 def main():
     log(f"=== 模式: {MODE} | 收件人: {len(RCPT)}人 ===")
     mf = load_mf()
     mf.setdefault("filename_seq", {})
-    
-    # finalize 模式: 不下载,只重发 HTML 汇总到 3 邮箱
+    
     if MODE == "finalize":
-        log("Finalize 模式: 重发归档汇总到全部收件人")
+        log("Finalize 模式: 回填 + 重发汇总到全部收件人")
         eps = fetch_eps()
-        html = build_html_digest(mf, len(eps))
+        backfill_old_entries(mf, eps)
+        save_mf(mf)
+        html = build_html_digest(mf)
         mail(f"海马星球播客 · 全站归档（{len(mf['processed'])} 期）", html, RCPT_FULL, html=True)
         log("=== Finalize 完成 ===")
         return
-    
+    
     try:
         eps = fetch_eps()
     except Exception as e:
         mail("⚠️ 海马星球抓取失败", f"错误: {e}", [QQ_EMAIL]); raise
     if not eps:
         mail("⚠️ 海马星球抓取异常", "未抓到音频", [QQ_EMAIL]); return
-    
+    
+    # 顺手回填老数据
+    backfill_old_entries(mf, eps)
+    
     new = [e for e in eps if e["guid"] not in mf["processed"]]
     total_new = len(new)
     if MODE == "test":
@@ -250,7 +243,7 @@ def main():
     else:
         new = new[:BATCH]
     log(f"本批: {len(new)} | 总待处理: {total_new}")
-    
+    
     if not new:
         now = datetime.now()
         last = mf.get("last_heartbeat")
@@ -260,7 +253,7 @@ def main():
             mf["last_heartbeat"] = now.isoformat()
         save_mf(mf)
         return
-    
+    
     rel, h, api = gh_release()
     succ, fail = [], []
     for i, ep in enumerate(new, 1):
@@ -270,32 +263,28 @@ def main():
             succ.append({**ep, **r})
             mf["processed"][ep["guid"]] = {"filename":r["fn"], "download_url":r["url"], "title":ep["title"], "date":ep["date"], "processed_at":datetime.now().isoformat()}
             save_mf(mf)
-            # 仅 weekly 模式每期单发
             if MODE == "weekly":
                 body = f"《{ep['title']}》\n\n录制日期: {ep['date']}\n文件大小: {r['sz']}MB\n下载地址: {r['url']}\n"
                 mail(f"海马星球新音频 · {r['fn'].replace('.mp3','')}", body)
         else:
             log(f"失败: {ep['title']} - {err}")
             fail.append({**ep, "error":err})
-    
+    
     rem = total_new - len(succ)
-    
-    # full / test 模式邮件策略
     if MODE in ("full", "test"):
         if rem == 0:
-            # 全部归档完成,发 HTML 汇总仅到主邮箱测试
-            log("全部归档完成,生成 HTML 汇总邮件")
-            html = build_html_digest(mf, len(eps))
+            log("全部归档完成,生成 HTML 汇总")
+            html = build_html_digest(mf)
             mail(f"🎉 海马星球播客 · 全站归档完成（{len(mf['processed'])} 期）测试版",
                  html, [QQ_EMAIL], html=True)
             mail("✅ 归档完成提示",
-                 f"全部 {len(mf['processed'])} 期已归档完成,HTML 汇总邮件已发到主邮箱测试。\n\n确认 OK 后,请触发 Run workflow 选 finalize 模式,将汇总群发给所有 3 个收件人。",
+                 f"全部 {len(mf['processed'])} 期已归档,HTML 汇总测试邮件已发到主邮箱。\n\n确认 OK 后,触发 Run workflow 选 finalize 群发 3 邮箱。",
                  [QQ_EMAIL])
         else:
             mail(f"海马星球归档进度 · {len(mf['processed'])}/{len(eps)}",
                  f"本批已完成 {len(succ)} 期,剩余 {rem} 期。\n请再次手动 Run workflow 继续(选 full)。\n",
                  [QQ_EMAIL])
-    
+    
     if fail:
         mail("⚠️ 海马星球部分失败", "失败清单:\n" + "\n".join(f"- {f['title']}: {f['error']}" for f in fail), [QQ_EMAIL])
     save_mf(mf)
