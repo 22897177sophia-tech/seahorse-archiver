@@ -222,7 +222,7 @@ def main():
         backfill_old_entries(mf, eps)
         save_mf(mf)
         html = build_html_digest(mf)
-        mail(f"海马星球播客 · 全站归档（{len(mf['processed'])} 期）", html, RCPT_FULL, html=True)
+        mail(f"海马星球播客 · 全站归档（{len(mf['processed'])} 期）测试版", html, [QQ_EMAIL], html=True)
         log("=== Finalize 完成 ===")
         return
     
