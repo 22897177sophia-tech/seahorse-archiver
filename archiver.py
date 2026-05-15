@@ -215,7 +215,7 @@ def main():
     log(f"=== 模式: {MODE} | 收件人: {len(RCPT)}人 ===")
     mf = load_mf()
     mf.setdefault("filename_seq", {})
-    
+    
     if MODE == "finalize":
         log("Finalize 模式: 回填 + 重发汇总到全部收件人")
         eps = fetch_eps()
@@ -225,17 +225,17 @@ def main():
         mail(f"海马星球播客 · 全站归档（{len(mf['processed'])} 期）", html, RCPT_FULL, html=True)
         log("=== Finalize 完成 ===")
         return
-    
+    
     try:
         eps = fetch_eps()
     except Exception as e:
         mail("⚠️ 海马星球抓取失败", f"错误: {e}", [QQ_EMAIL]); raise
     if not eps:
         mail("⚠️ 海马星球抓取异常", "未抓到音频", [QQ_EMAIL]); return
-    
+    
     # 顺手回填老数据
     backfill_old_entries(mf, eps)
-    
+    
     new = [e for e in eps if e["guid"] not in mf["processed"]]
     total_new = len(new)
     if MODE == "test":
@@ -243,7 +243,7 @@ def main():
     else:
         new = new[:BATCH]
     log(f"本批: {len(new)} | 总待处理: {total_new}")
-    
+    
     if not new:
         now = datetime.now()
         last = mf.get("last_heartbeat")
@@ -253,7 +253,7 @@ def main():
             mf["last_heartbeat"] = now.isoformat()
         save_mf(mf)
         return
-    
+    
     rel, h, api = gh_release()
     succ, fail = [], []
     for i, ep in enumerate(new, 1):
@@ -269,7 +269,7 @@ def main():
         else:
             log(f"失败: {ep['title']} - {err}")
             fail.append({**ep, "error":err})
-    
+    
     rem = total_new - len(succ)
     if MODE in ("full", "test"):
         if rem == 0:
@@ -284,7 +284,7 @@ def main():
             mail(f"海马星球归档进度 · {len(mf['processed'])}/{len(eps)}",
                  f"本批已完成 {len(succ)} 期,剩余 {rem} 期。\n请再次手动 Run workflow 继续(选 full)。\n",
                  [QQ_EMAIL])
-    
+    
     if fail:
         mail("⚠️ 海马星球部分失败", "失败清单:\n" + "\n".join(f"- {f['title']}: {f['error']}" for f in fail), [QQ_EMAIL])
     save_mf(mf)
