@@ -741,6 +741,13 @@
       "title": "女性之路（二）：从女神时代到男性统治",
       "date": "2026-02-12",
       "processed_at": "2026-05-13T15:40:25.942739"
+    },
+    "https://seahorseplanet.net/podcast-download/4504/batek%e4%ba%ba%e4%bc%9a%e6%80%8e%e4%b9%88%e6%83%b3%ef%bc%9f.mp3": {
+      "filename": "202605.mp3",
+      "download_url": "https://github.com/22897177sophia-tech/seahorse-archiver/releases/download/archive/202605.mp3",
+      "title": "“Batek人会怎么想？”",
+      "date": "2026-05-30",
+      "processed_at": "2026-06-01T19:34:38.661884"
     }
   },
   "last_heartbeat": "2026-05-15T09:33:33.398908",
@@ -988,6 +995,9 @@
     ],
     "202602": [
       "2026-02-12_https://seahorseplanet.net/podcast-download/4479/%e5%a5%b3%e6%80%a7%e4%b9%8b%e8%b7%af%ef%bc%88%e4%ba%8c%ef%bc%89%ef%bc%9a%e4%bb%8e%e5%a5%b3%e7%a5%9e%e6%97%b6%e4%bb%a3%e5%88%b0%e7%94%b7%e6%80%a7%e7%bb%9f%e6%b2%bb.mp3"
+    ],
+    "202605": [
+      "2026-05-30_https://seahorseplanet.net/podcast-download/4504/batek%e4%ba%ba%e4%bc%9a%e6%80%8e%e4%b9%88%e6%83%b3%ef%bc%9f.mp3"
     ]
   }
 }
