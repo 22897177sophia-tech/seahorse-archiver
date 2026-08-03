@@ -755,6 +755,13 @@
       "title": "女性之路（五）：看不见的父权制基因（中）",
       "date": "2026-07-01",
       "processed_at": "2026-07-06T05:10:31.828933"
+    },
+    "https://seahorseplanet.net/podcast-download/4526/%e5%a5%b3%e6%80%a7%e4%b9%8b%e8%b7%af%ef%bc%88%e5%85%ad%ef%bc%89%ef%bc%9a%e7%9c%8b%e4%b8%8d%e8%a7%81%e7%9a%84%e7%88%b6%e6%9d%83%e5%88%b6%e5%9f%ba%e5%9b%a0%ef%bc%88%e4%b8%8b%ef%bc%89.mp3": {
+      "filename": "202607_a.mp3",
+      "download_url": "https://github.com/22897177sophia-tech/seahorse-archiver/releases/download/archive/202607_a.mp3",
+      "title": "女性之路（六）：看不见的父权制基因（下）",
+      "date": "2026-07-31",
+      "processed_at": "2026-08-03T04:30:38.464305"
     }
   },
   "last_heartbeat": "2026-07-13T04:29:55.009353",
@@ -1007,7 +1014,8 @@
       "2026-05-30_https://seahorseplanet.net/podcast-download/4504/batek%e4%ba%ba%e4%bc%9a%e6%80%8e%e4%b9%88%e6%83%b3%ef%bc%9f.mp3"
     ],
     "202607": [
-      "2026-07-01_https://seahorseplanet.net/podcast-download/4517/%e5%a5%b3%e6%80%a7%e4%b9%8b%e8%b7%af%ef%bc%88%e4%ba%94%ef%bc%89%ef%bc%9a%e7%9c%8b%e4%b8%8d%e8%a7%81%e7%9a%84%e7%88%b6%e6%9d%83%e5%88%b6%e5%9f%ba%e5%9b%a0%ef%bc%88%e4%b8%ad%ef%bc%89.mp3"
+      "2026-07-01_https://seahorseplanet.net/podcast-download/4517/%e5%a5%b3%e6%80%a7%e4%b9%8b%e8%b7%af%ef%bc%88%e4%ba%94%ef%bc%89%ef%bc%9a%e7%9c%8b%e4%b8%8d%e8%a7%81%e7%9a%84%e7%88%b6%e6%9d%83%e5%88%b6%e5%9f%ba%e5%9b%a0%ef%bc%88%e4%b8%ad%ef%bc%89.mp3",
+      "2026-07-31_https://seahorseplanet.net/podcast-download/4526/%e5%a5%b3%e6%80%a7%e4%b9%8b%e8%b7%af%ef%bc%88%e5%85%ad%ef%bc%89%ef%bc%9a%e7%9c%8b%e4%b8%8d%e8%a7%81%e7%9a%84%e7%88%b6%e6%9d%83%e5%88%b6%e5%9f%ba%e5%9b%a0%ef%bc%88%e4%b8%8b%ef%bc%89.mp3"
     ]
   }
 }
