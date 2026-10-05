@@ -769,6 +769,13 @@
       "title": "女性之路（七）：父权制的大房子",
       "date": "2026-08-31",
       "processed_at": "2026-09-07T05:41:53.333167"
+    },
+    "https://seahorseplanet.net/podcast-download/4545/%e5%a5%b3%e6%80%a7%e4%b9%8b%e8%b7%af%ef%bc%88%e5%85%ab%ef%bc%89%ef%bc%9a%e7%88%b6%e6%9d%83%e5%88%b6%e7%9a%84%e5%88%86%e8%b5%83%e5%92%8c%e6%89%93%e8%b5%8f%e6%9c%ba%e5%88%b6%ef%bc%88%e4%b8%8a%ef%bc%89.mp3": {
+      "filename": "202609.mp3",
+      "download_url": "https://github.com/22897177sophia-tech/seahorse-archiver/releases/download/archive/202609.mp3",
+      "title": "女性之路（八）：父权制的分赃和打赏机制（上）",
+      "date": "2026-09-29",
+      "processed_at": "2026-10-05T06:34:49.740855"
     }
   },
   "last_heartbeat": "2026-09-14T05:47:09.563161",
@@ -1026,6 +1033,9 @@
     ],
     "202608": [
       "2026-08-31_https://seahorseplanet.net/podcast-download/4538/%e5%a5%b3%e6%80%a7%e4%b9%8b%e8%b7%af%ef%bc%88%e4%b8%83%ef%bc%89%ef%bc%9a%e7%88%b6%e6%9d%83%e5%88%b6%e7%9a%84%e5%a4%a7%e6%88%bf%e5%ad%90.mp3"
+    ],
+    "202609": [
+      "2026-09-29_https://seahorseplanet.net/podcast-download/4545/%e5%a5%b3%e6%80%a7%e4%b9%8b%e8%b7%af%ef%bc%88%e5%85%ab%ef%bc%89%ef%bc%9a%e7%88%b6%e6%9d%83%e5%88%b6%e7%9a%84%e5%88%86%e8%b5%83%e5%92%8c%e6%89%93%e8%b5%8f%e6%9c%ba%e5%88%b6%ef%bc%88%e4%b8%8a%ef%bc%89.mp3"
     ]
   }
 }
