@@ -776,6 +776,13 @@
       "title": "女性之路（八）：父权制的分赃和打赏机制（上）",
       "date": "2026-09-29",
       "processed_at": "2026-10-05T06:34:49.740855"
+    },
+    "https://seahorseplanet.net/podcast-download/4552/%e5%a5%b3%e6%80%a7%e4%b9%8b%e8%b7%af%ef%bc%88%e4%b9%9d%ef%bc%89%ef%bc%9a%e7%88%b6%e6%9d%83%e5%88%b6%e7%9a%84%e5%88%86%e8%b5%83%e5%92%8c%e6%89%93%e8%b5%8f%e6%9c%ba%e5%88%b6%ef%bc%88%e4%b8%8b%ef%bc%89.mp3": {
+      "filename": "202610.mp3",
+      "download_url": "https://github.com/22897177sophia-tech/seahorse-archiver/releases/download/archive/202610.mp3",
+      "title": "女性之路（九）：父权制的分赃和打赏机制（下）",
+      "date": "2026-10-31",
+      "processed_at": "2026-11-02T07:14:25.996424"
     }
   },
   "last_heartbeat": "2026-10-12T06:58:03.185314",
@@ -1036,6 +1043,9 @@
     ],
     "202609": [
       "2026-09-29_https://seahorseplanet.net/podcast-download/4545/%e5%a5%b3%e6%80%a7%e4%b9%8b%e8%b7%af%ef%bc%88%e5%85%ab%ef%bc%89%ef%bc%9a%e7%88%b6%e6%9d%83%e5%88%b6%e7%9a%84%e5%88%86%e8%b5%83%e5%92%8c%e6%89%93%e8%b5%8f%e6%9c%ba%e5%88%b6%ef%bc%88%e4%b8%8a%ef%bc%89.mp3"
+    ],
+    "202610": [
+      "2026-10-31_https://seahorseplanet.net/podcast-download/4552/%e5%a5%b3%e6%80%a7%e4%b9%8b%e8%b7%af%ef%bc%88%e4%b9%9d%ef%bc%89%ef%bc%9a%e7%88%b6%e6%9d%83%e5%88%b6%e7%9a%84%e5%88%86%e8%b5%83%e5%92%8c%e6%89%93%e8%b5%8f%e6%9c%ba%e5%88%b6%ef%bc%88%e4%b8%8b%ef%bc%89.mp3"
     ]
   }
 }
